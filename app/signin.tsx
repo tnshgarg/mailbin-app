@@ -4,17 +4,79 @@ import { Image, StyleSheet, TouchableOpacity } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
-import axios from "axios";
-import { openBrowserAsync } from "expo-web-browser";
+import { useEffect, useState } from "react";
+import * as Google from "expo-auth-session/providers/google";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { sign } from "react-native-pure-jwt";
 
 export default function SignInScreen() {
-  const signIn = async () => {
-    const response = await axios.get("http://localhost:8000/auth/login");
+  const [userInfo, setUserInfo] = useState(null);
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId:
+      "288556331838-quj929grjbnjudlcbvlpjn4bgtdjpiu3.apps.googleusercontent.com",
+    iosClientId:
+      "288556331838-8g53pe6dsmhqk2gilns8134tlqldmm1o.apps.googleusercontent.com",
+    webClientId:
+      "288556331838-pv18scatla236etu1gon3mnjlgfqtupl.apps.googleusercontent.com",
+    scopes: [
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/userinfo.profile",
+      "https://www.googleapis.com/auth/userinfo.email",
+    ],
+  });
 
-    const authUrl = response.data?.url;
-    if (authUrl) await openBrowserAsync(authUrl);
+  useEffect(() => {
+    handleSignInWithGoogle();
+  }, [response]);
 
-    return authUrl;
+  const handleSignInWithGoogle = async () => {
+    const user = await AsyncStorage.getItem("@user");
+    console.log("USer: ", user);
+    if (!user) {
+      if (response?.type == "success") {
+        const accessToken = response.authentication?.accessToken;
+        const auth = response.authentication;
+        const signedToken = await sign(
+          {
+            iss: {
+              access_token: auth?.accessToken,
+              refresh_token: auth?.refreshToken,
+              scope: auth?.scope,
+              token_type: auth?.tokenType,
+              expiry_date: auth?.expiresIn,
+            },
+            exp: new Date().getTime() + 3600 * 1000,
+          },
+          "mytoenailsuckstobeatoenail",
+          { alg: "HS256" }
+        );
+        console.log("accessToken: ", accessToken);
+        console.log("signedToken: ", signedToken);
+        await getUserInfo(accessToken!);
+      }
+    } else {
+      setUserInfo(JSON.parse(user));
+    }
+  };
+
+  const getUserInfo = async (token: string) => {
+    if (!token) return;
+    try {
+      const response = await fetch(
+        "https://www.googleapis.com/userinfo/v2/me",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const user = await response.json();
+      console.log("USER: ", user);
+      await AsyncStorage.setItem("@user", JSON.stringify(user));
+      setUserInfo(user);
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return (
@@ -30,6 +92,7 @@ export default function SignInScreen() {
         }
       >
         <ThemedView style={styles.child}>
+          <ThemedText>{JSON.stringify(userInfo)}</ThemedText>
           <ThemedView>
             <ThemedText type="title" style={styles.heading}>
               Easiest Way to Clean Your Inbox for Free
@@ -48,7 +111,7 @@ export default function SignInScreen() {
             </ThemedText>
           </ThemedView>
           <TouchableOpacity
-            onPress={signIn}
+            onPress={() => promptAsync()}
             activeOpacity={0.8}
             style={styles.gmailContainer}
           >
@@ -142,80 +205,3 @@ const styles = StyleSheet.create({
     fontWeight: 500,
   },
 });
-
-// // GoogleLogin.js
-// import React, { useEffect, useState } from "react";
-// import { Button, View, Text } from "react-native";
-// import * as AuthSession from "expo-auth-session";
-// import * as WebBrowser from "expo-web-browser";
-// import axios from "axios";
-// import jwtDecode from "jwt-decode"; // Make sure the correct import path is used
-// import { useAuth } from "../context/AuthContext";
-// import { CLIENT_ID } from "@env";
-
-// WebBrowser.maybeCompleteAuthSession();
-
-// const GOOGLE_CLIENT_ID = CLIENT_ID;
-// const REDIRECT_URI = AuthSession.makeRedirectUri({ path: "/auth/login" });
-// // const DISCOVERY = AuthSession.useAutoDiscovery("https://accounts.google.com");
-
-// export default function GoogleLogin() {
-//   // const { setUser } = useAuth();
-//   const [request, response, promptAsync] = AuthSession.useAuthRequest(
-//     {
-//       clientId: GOOGLE_CLIENT_ID,
-//       redirectUri: REDIRECT_URI,
-//       scopes: ["openid", "profile", "email"],
-//       responseType: AuthSession.ResponseType.Code,
-//     },
-//     null
-//   );
-
-//   console.log("Reddd: ", REDIRECT_URI);
-//   console.log("Reqqq: ", request, response, promptAsync);
-
-//   useEffect(() => {
-//     if (response?.type === "success") {
-//       const { code } = response.params;
-
-//       const fetchToken = async () => {
-//         try {
-//           const { data } = await axios.post(
-//             "http://localhost:8000/auth/callback",
-//             {
-//               code,
-//               redirect_uri: REDIRECT_URI,
-//               client_id: GOOGLE_CLIENT_ID,
-//               grant_type: "authorization_code",
-//             }
-//           );
-
-//           const { token } = data;
-//           const decoded = jwtDecode.jwtDecode(token);
-//           console.log("Decoded: ", decoded);
-//           // setUser(decoded);
-//         } catch (error) {
-//           console.error("Authentication error", error);
-//         }
-//       };
-
-//       fetchToken();
-//     }
-//   }, [response]);
-
-//   return (
-//     <View
-//       style={{
-//         marginTop: 100,
-//       }}
-//     >
-//       <Button
-//         disabled={!request}
-//         title="Login with Google"
-//         onPress={() => {
-//           promptAsync();
-//         }}
-//       />
-//     </View>
-//   );
-// }
