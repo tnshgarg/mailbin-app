@@ -1,5 +1,6 @@
 declare module "@env" {
-  export const CLIENT_ID: string;
-  export const CLIENT_SECRET: string;
-  // Add other variables as needed
+  export const ANDROID_CLIENT_ID: string;
+  export const IOS_CLIENT_ID: string;
+  export const WEB_CLIENT_ID: string;
+  export const JWT_SECRET: string;
 }

@@ -1,21 +1,35 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Redirect } from "expo-router";
-// import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator } from "react-native";
 
 const Index = () => {
-  //   GoogleSignin.configure({
-  //     webClientId:
-  //       "288556331838-pv18scatla236etu1gon3mnjlgfqtupl.apps.googleusercontent.com", // client ID of type WEB for your server. Required to get the `idToken` on the user object, and for offline access.
-  //     scopes: [
-  //       "https://www.googleapis.com/auth/gmail.readonly",
-  //       "https://www.googleapis.com/auth/userinfo.profile",
-  //       "https://www.googleapis.com/auth/userinfo.email",
-  //     ], // what API you want to access on behalf of the user, default is email and profile
-  //     offlineAccess: true, // if you want to access Google API on behalf of the user FROM YOUR SERVER
-  //     forceCodeForRefreshToken: true, // [Android] related to `serverAuthCode`, read the docs link below *.
-  //     iosClientId:
-  //       "288556331838-8g53pe6dsmhqk2gilns8134tlqldmm1o.apps.googleusercontent.com", // [iOS] if you want to specify the client ID of type iOS (otherwise, it is taken from GoogleService-Info.plist)
-  //     profileImageSize: 120, // [iOS] The desired height (and width) of the profile image. Defaults to 120px
-  //   });
-  return <Redirect href="/signin" />;
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    const fetchToken = async () => {
+      const storedToken = await AsyncStorage.getItem("@token");
+      console.log("token: ", storedToken);
+      setToken(storedToken);
+      setIsLoading(false);
+    };
+    
+    fetchToken();
+  }, []);
+
+  if (isLoading) {
+    return <ActivityIndicator size={"large"} color={"red"} />; // or a loading spinner if you prefer
+  }
+
+  if (token == null) {
+    console.log("NULL STATE");
+    return <Redirect href="/signin" />;
+  } else {
+    console.log("TABS STATE");
+    return <Redirect href="/(tabs)" />;
+  }
 };
+
 export default Index;
+
